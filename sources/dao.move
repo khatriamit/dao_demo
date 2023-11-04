@@ -6,7 +6,7 @@ module demo_dao::dao{
   use sui::tx_context::{Self, TxContext};
   use sui::vec_map::{Self, VecMap};
 
-  struct Wallet has key{
+  struct SafeWallet has key{
     id: UID,
     owner: address,
     name:String,
@@ -25,10 +25,12 @@ module demo_dao::dao{
 
   const ENotEnoughVoteCount:u64 = 0;
   const ENotDaoMember:u64 = 1;
+  const ENotTheOwner:u64 = 2;
+  const EValueMismatch:u64 = 3;
 
-  public entry fun create_dao_wallet(name:vector<u8>, threshold:u8, ctx: &mut TxContext){
+  public entry fun create_dao_wallet(name:vector<u8>, threshold:u8,ctx: &mut TxContext){
     let owner = tx_context::sender(ctx);
-    let wallet = Wallet{
+    let wallet = SafeWallet{
       id: object::new(ctx),
       owner: owner,
       name: string::utf8(name),
@@ -40,7 +42,7 @@ module demo_dao::dao{
     transfer::share_object(wallet);
   }
 
-  public entry fun create_dao_proposal(wallet:&mut Wallet, ctx: &mut TxContext){
+  public entry fun create_dao_proposal(wallet:&mut SafeWallet, ctx: &mut TxContext){
     let proposal = Proposal{
       id: object::new(ctx),
       creator: tx_context::sender(ctx),
@@ -51,11 +53,14 @@ module demo_dao::dao{
     vector::push_back(&mut wallet.proposals, proposal);
   }
 
-  public entry fun add_member(wallet: &mut Wallet, new_member: address){
+  public entry fun add_member(wallet: &mut SafeWallet, new_member: address, ctx: &mut TxContext){
+    let sender = tx_context::sender(ctx);
+    let owner = wallet.owner ;
+    assert!(owner == sender, ENotTheOwner);
     vec_map::insert(&mut wallet.members, new_member, true);
   }
 
-  public entry fun approve_proposal(wallet: &mut Wallet, proposal_id: u64, ctx: &mut TxContext){
+  public entry fun approve_proposal(wallet: &mut SafeWallet, proposal_id: u64, ctx: &mut TxContext){
       let sender = tx_context::sender(ctx);
       assert!(vec_map::contains(&mut wallet.members, &sender)== true, ENotDaoMember);
       let proposal = vector::borrow_mut(&mut wallet.proposals, proposal_id);
@@ -63,9 +68,14 @@ module demo_dao::dao{
       vec_map::insert(&mut proposal.votes, tx_context::sender(ctx), true);
   }
 
-  public entry fun execute(wallet: &mut Wallet, proposal_id: u64){
-    let proposal = vector::borrow_mut(&mut wallet.proposals, proposal_id);
-    assert!(proposal.votes_count >=  wallet.threshold, ENotEnoughVoteCount);
+  public fun demo():u64{
+    10
   }
 
+  public entry fun execute(wallet: &mut SafeWallet, proposal_id: u64){
+    let proposal = vector::borrow_mut(&mut wallet.proposals, proposal_id);
+    assert!(proposal.votes_count >=  wallet.threshold, ENotEnoughVoteCount);
+    let response = demo();
+    assert!(response == 10, EValueMismatch);
+  }
 }
