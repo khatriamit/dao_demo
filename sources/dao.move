@@ -15,6 +15,11 @@ module demo_dao::dao{
     proposals: vector<Proposal>,
   }
 
+  /// In our case proopsal should hold information such as
+  /// - which function to call and the moudule it belongs to.
+  /// - capability objects required to call the function
+  /// for now we will just be implementing one important function call that requires
+  /// agreement of dao members.
   struct Proposal has store {
     id: UID,
     creator: address,
@@ -68,14 +73,16 @@ module demo_dao::dao{
       vec_map::insert(&mut proposal.votes, tx_context::sender(ctx), true);
   }
 
-  public fun demo():u64{
+  /// Important function that requries agreement of dao members.
+  public fun demo_transfer_balance():u64{
+    // distribute balance to dao members ()
     10
   }
 
   public entry fun execute(wallet: &mut SafeWallet, proposal_id: u64){
     let proposal = vector::borrow_mut(&mut wallet.proposals, proposal_id);
     assert!(proposal.votes_count >=  wallet.threshold, ENotEnoughVoteCount);
-    let response = demo();
+    let response = demo_transfer_balance();
     assert!(response == 10, EValueMismatch);
   }
 }
